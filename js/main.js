@@ -13,6 +13,7 @@
   const restartBtn = document.getElementById('restartBtn');
   const nextLevelBtn = document.getElementById('nextLevelBtn');
   const muteBtn = document.getElementById('muteBtn');
+  const cameraBtn = document.getElementById('cameraBtn');
   const resultsHeading = document.getElementById('resultsHeading');
 
   const lapCurrentEl = document.getElementById('lapCurrent');
@@ -159,7 +160,32 @@
   let countdownValue = 3;
   let countdownTimer = 0;
   let lastFrame = null;
-  let zoom = 0.62;
+
+  // --- Camera views ---
+  const CAMERA_MODES = [
+    { label: 'Standard', zoom: 0.62, rotate: false },
+    { label: 'Chase Cam', zoom: 0.78, rotate: true },
+    { label: 'Wide View', zoom: 0.42, rotate: false },
+    { label: 'Close-Up', zoom: 0.95, rotate: false },
+  ];
+  function readStoredCameraIndex() {
+    try {
+      const saved = parseInt(localStorage.getItem('ridgeRacerCamera'), 10);
+      if (saved >= 0 && saved < CAMERA_MODES.length) return saved;
+    } catch (e) { /* ignore */ }
+    return 0;
+  }
+  let cameraModeIndex = readStoredCameraIndex();
+  function updateCameraBtn() {
+    cameraBtn.textContent = `📷 ${CAMERA_MODES[cameraModeIndex].label}`;
+  }
+  function cycleCamera() {
+    cameraModeIndex = (cameraModeIndex + 1) % CAMERA_MODES.length;
+    try { localStorage.setItem('ridgeRacerCamera', String(cameraModeIndex)); } catch (e) { /* ignore */ }
+    updateCameraBtn();
+  }
+  updateCameraBtn();
+  cameraBtn.addEventListener('click', cycleCamera);
 
   function resize() {
     canvas.width = window.innerWidth;
@@ -334,7 +360,12 @@
   }
 
   function worldToScreenTransform() {
-    ctx.setTransform(zoom, 0, 0, zoom, canvas.width / 2 - player.x * zoom, canvas.height / 2 - player.y * zoom);
+    const mode = CAMERA_MODES[cameraModeIndex];
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    if (mode.rotate) ctx.rotate(-player.angle - Math.PI / 2);
+    ctx.scale(mode.zoom, mode.zoom);
+    ctx.translate(-player.x, -player.y);
   }
 
   function drawBike(b) {
@@ -491,6 +522,7 @@
     if (e.code === 'Enter') {
       if (state === STATE.MENU || state === STATE.FINISHED) startRace();
     }
+    if (e.code === 'KeyV') cycleCamera();
   });
 
   requestAnimationFrame(loop);
@@ -503,5 +535,8 @@
     get selectedLevel() { return selectedLevel; },
     get difficulty() { return currentDifficulty; },
     get highestUnlocked() { return highestUnlocked; },
+    get cameraModeIndex() { return cameraModeIndex; },
+    get cameraModes() { return CAMERA_MODES; },
+    cycleCamera,
   };
 })();

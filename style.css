@@ -121,6 +121,28 @@ html, body {
   background: rgba(30, 38, 50, 0.8);
 }
 
+.camera-btn {
+  position: absolute;
+  right: 16px;
+  bottom: 182px;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 19px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(10, 14, 20, 0.55);
+  color: #eef2f7;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  pointer-events: all;
+  white-space: nowrap;
+  backdrop-filter: blur(4px);
+}
+
+.camera-btn:hover {
+  background: rgba(30, 38, 50, 0.8);
+}
+
 /* ---------- Overlays ---------- */
 
 .overlay {
