@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Ridge Racer Circuit &mdash; Motorbike Racing</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-size='24' text-anchor='middle'%3E%F0%9F%8F%8D%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <canvas id="minimap" width="200" height="150"></canvas>
+
+  <div id="hud" class="hidden">
+    <div class="hud-panel hud-top-left">
+      <div class="hud-label">LAP</div>
+      <div class="hud-value"><span id="lapCurrent">1</span>/<span id="lapTotal">3</span></div>
+    </div>
+    <div class="hud-panel hud-top-right">
+      <div class="hud-label">POSITION</div>
+      <div class="hud-value" id="position">1<span id="positionSuffix">st</span></div>
+    </div>
+    <div class="hud-panel hud-bottom-left">
+      <div class="hud-label">TIME</div>
+      <div class="hud-value" id="raceTime">00:00.0</div>
+    </div>
+    <div class="hud-panel hud-speedo">
+      <div class="hud-label">SPEED</div>
+      <div class="hud-value"><span id="speedValue">0</span> <span class="hud-unit">km/h</span></div>
+    </div>
+    <button id="muteBtn" class="icon-btn" title="Toggle sound">&#128266;</button>
+  </div>
+
+  <div id="countdown" class="overlay hidden">
+    <div id="countdownText">3</div>
+  </div>
+
+  <div id="menu" class="overlay">
+    <div class="card">
+      <h1>🏍️ Ridge Racer Circuit</h1>
+      <p class="subtitle">A quick-fire top-down motorbike race. Beat 4 rivals over 3 laps.</p>
+      <div class="controls-grid">
+        <div><strong>Accelerate</strong><span>W / &uarr;</span></div>
+        <div><strong>Brake / Reverse</strong><span>S / &darr;</span></div>
+        <div><strong>Steer</strong><span>A D / &larr; &rarr;</span></div>
+        <div><strong>Handbrake</strong><span>Space</span></div>
+      </div>
+      <p class="tip">Tip: stay on the tarmac &mdash; the grass will slow you right down.</p>
+      <button id="startBtn" class="primary-btn">Start Race</button>
+    </div>
+  </div>
+
+  <div id="results" class="overlay hidden">
+    <div class="card">
+      <h1>🏁 Race Results</h1>
+      <table id="resultsTable">
+        <thead>
+          <tr><th>Pos</th><th>Rider</th><th>Time</th><th>Best Lap</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <button id="restartBtn" class="primary-btn">Race Again</button>
+    </div>
+  </div>
+
+  <!-- touch controls, shown only on touch devices via CSS -->
+  <div id="touchControls">
+    <div class="touch-left">
+      <button id="touchLeft" class="touch-btn">&larr;</button>
+      <button id="touchRight" class="touch-btn">&rarr;</button>
+    </div>
+    <div class="touch-right">
+      <button id="touchBrake" class="touch-btn small">&darr;</button>
+      <button id="touchThrottle" class="touch-btn big">&uarr;</button>
+    </div>
+  </div>
+
+  <script src="js/track.js"></script>
+  <script src="js/bike.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
