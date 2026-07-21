@@ -11,13 +11,16 @@
   const countdownText = document.getElementById('countdownText');
   const startBtn = document.getElementById('startBtn');
   const restartBtn = document.getElementById('restartBtn');
+  const nextLevelBtn = document.getElementById('nextLevelBtn');
   const muteBtn = document.getElementById('muteBtn');
+  const resultsHeading = document.getElementById('resultsHeading');
 
   const lapCurrentEl = document.getElementById('lapCurrent');
   const positionEl = document.getElementById('position');
   const positionSuffixEl = document.getElementById('positionSuffix');
   const raceTimeEl = document.getElementById('raceTime');
   const speedValueEl = document.getElementById('speedValue');
+  const hudLevelEl = document.getElementById('hudLevel');
 
   const RIDER_NAMES = ['You', 'Razor', 'Vex', 'Ghost', 'Ripper'];
   const COLOR_PALETTE = [
@@ -51,6 +54,75 @@
   }
   buildColorPicker();
 
+  // --- Level select (1 = easiest, 100 = hardest) ---
+  const levelSlider = document.getElementById('levelSlider');
+  const levelValueEl = document.getElementById('levelValue');
+  const levelDifficultyEl = document.getElementById('levelDifficulty');
+  const levelPreview = document.getElementById('levelPreview');
+  const levelPreviewCtx = levelPreview.getContext('2d');
+
+  function readStoredLevel() {
+    try {
+      const saved = parseInt(localStorage.getItem('ridgeRacerLevel'), 10);
+      if (saved >= 1 && saved <= LEVEL_COUNT) return saved;
+    } catch (e) { /* localStorage unavailable, e.g. private mode */ }
+    return 1;
+  }
+  function storeLevel(level) {
+    try { localStorage.setItem('ridgeRacerLevel', String(level)); } catch (e) { /* ignore */ }
+  }
+
+  let selectedLevel = readStoredLevel();
+  let currentDifficulty = 0;
+
+  const DIFFICULTY_TIERS = [
+    { max: 20, name: 'Rookie', blurb: 'wide track, slow rivals' },
+    { max: 40, name: 'Novice', blurb: 'a bit tighter, rivals waking up' },
+    { max: 60, name: 'Skilled', blurb: 'technical corners, real pace' },
+    { max: 80, name: 'Expert', blurb: 'narrow track, sharp rivals' },
+    { max: 100, name: 'Legendary', blurb: 'razor-thin tarmac, no mercy' },
+  ];
+  function difficultyLabel(level) {
+    const tier = DIFFICULTY_TIERS.find((d) => level <= d.max) || DIFFICULTY_TIERS[DIFFICULTY_TIERS.length - 1];
+    return `${tier.name} · ${tier.blurb}`;
+  }
+
+  function drawLevelPreview(level) {
+    const preview = generateTrack(level);
+    const w = levelPreview.width;
+    const h = levelPreview.height;
+    levelPreviewCtx.clearRect(0, 0, w, h);
+    const b = preview.bounds;
+    const pad = 8;
+    const sx = (w - pad * 2) / (b.maxX - b.minX);
+    const sy = (h - pad * 2) / (b.maxY - b.minY);
+    const s = Math.min(sx, sy);
+    const ox = pad - b.minX * s + (w - pad * 2 - (b.maxX - b.minX) * s) / 2;
+    const oy = pad - b.minY * s + (h - pad * 2 - (b.maxY - b.minY) * s) / 2;
+    const cl = preview.centerline;
+    levelPreviewCtx.strokeStyle = 'rgba(255,255,255,0.7)';
+    levelPreviewCtx.lineWidth = Math.max(1.5, (preview.width / 300) * 6);
+    levelPreviewCtx.beginPath();
+    levelPreviewCtx.moveTo(cl[0].x * s + ox, cl[0].y * s + oy);
+    for (let i = 1; i < cl.length; i += 2) levelPreviewCtx.lineTo(cl[i].x * s + ox, cl[i].y * s + oy);
+    levelPreviewCtx.closePath();
+    levelPreviewCtx.stroke();
+  }
+
+  function updateLevelUI() {
+    levelValueEl.textContent = `${selectedLevel} / ${LEVEL_COUNT}`;
+    levelDifficultyEl.textContent = difficultyLabel(selectedLevel);
+    drawLevelPreview(selectedLevel);
+  }
+
+  levelSlider.value = String(selectedLevel);
+  updateLevelUI();
+  levelSlider.addEventListener('input', () => {
+    selectedLevel = parseInt(levelSlider.value, 10);
+    storeLevel(selectedLevel);
+    updateLevelUI();
+  });
+
   const STATE = { MENU: 'menu', COUNTDOWN: 'countdown', RACING: 'racing', FINISHED: 'finished' };
   let state = STATE.MENU;
 
@@ -72,7 +144,14 @@
   function spawnBikes() {
     const list = [];
     const n = TRACK.count;
+    const t = currentDifficulty;
     const aiColors = COLOR_PALETTE.filter((c) => c !== playerColor);
+    // AI gets faster, better-accelerating, sharper-cornering and more
+    // accurate as the level number climbs; the player's bike never changes.
+    const aiMaxSpeedBase = 600 * (0.72 + 0.42 * t);
+    const aiAccelBase = 340 + 100 * t;
+    const aiTurnRateBase = 2.3 + 0.5 * t;
+    const aiSkillBase = 0.72 + 0.3 * t;
     for (let i = 0; i < RIDER_NAMES.length; i++) {
       const backIdx = ((0 - i * 34) % n + n) % n;
       const p = TRACK.centerline[backIdx];
@@ -88,9 +167,10 @@
           x: p.x + nx * laneOffset,
           y: p.y + ny * laneOffset,
           angle: p.angle,
-          maxSpeed: 600 + (i === 0 ? 40 : Math.random() * 60 - 10),
-          accel: 380 + Math.random() * 60,
-          turnRate: 2.6 + Math.random() * 0.3,
+          maxSpeed: i === 0 ? 640 : aiMaxSpeedBase + (Math.random() * 60 - 30),
+          accel: i === 0 ? 400 : aiAccelBase + (Math.random() * 40 - 20),
+          turnRate: i === 0 ? 2.7 : aiTurnRateBase + (Math.random() * 0.3 - 0.15),
+          aiSkill: i === 0 ? undefined : aiSkillBase + (Math.random() * 0.1 - 0.05),
           startOffset: -(i * 34),
         })
       );
@@ -117,6 +197,9 @@
   }
 
   function startRace() {
+    TRACK = generateTrack(selectedLevel);
+    currentDifficulty = TRACK.difficulty;
+    hudLevelEl.textContent = selectedLevel;
     bikes = spawnBikes();
     player = bikes[0];
     raceTime = 0;
@@ -138,6 +221,11 @@
     GameAudio.stopEngine();
     GameAudio.finishJingle();
     hud.classList.add('hidden');
+
+    const won = player.finishPosition === 1;
+    resultsHeading.textContent = `🏁 Level ${selectedLevel} — ${won ? 'You Won!' : 'Race Results'}`;
+    nextLevelBtn.classList.toggle('hidden', selectedLevel >= LEVEL_COUNT || !won);
+
     const sorted = rankBikes();
     // Anyone who didn't cross the line gets ranked by progress but no time.
     sorted.forEach((b, i) => {
@@ -183,10 +271,12 @@
 
     for (const b of bikes) {
       if (b.finished) continue;
-      // Rubber-band AI speed toward the player's pace so the race stays close.
+      // Rubber-band AI speed toward the player's pace so the race stays
+      // close, with less mercy extended to trailing AI at higher levels.
       if (!b.isPlayer) {
         const diff = player.totalProgress - b.totalProgress;
-        const adjust = clamp(diff * 0.035, -90, 130);
+        const rubberRange = 150 - 70 * currentDifficulty;
+        const adjust = clamp(diff * 0.035, -rubberRange, rubberRange);
         b.maxSpeed = clamp(b.baseMaxSpeed + adjust, b.baseMaxSpeed * 0.65, b.baseMaxSpeed * 1.3);
       }
       b.update(dt, raceTime, controls);
@@ -331,6 +421,13 @@
 
   startBtn.addEventListener('click', startRace);
   restartBtn.addEventListener('click', startRace);
+  nextLevelBtn.addEventListener('click', () => {
+    selectedLevel = Math.min(selectedLevel + 1, LEVEL_COUNT);
+    storeLevel(selectedLevel);
+    levelSlider.value = String(selectedLevel);
+    updateLevelUI();
+    startRace();
+  });
   muteBtn.addEventListener('click', () => {
     const muted = GameAudio.toggleMute();
     muteBtn.textContent = muted ? '🔇' : '🔊';
@@ -349,5 +446,7 @@
     get bikes() { return bikes; },
     get player() { return player; },
     get state() { return state; },
+    get selectedLevel() { return selectedLevel; },
+    get difficulty() { return currentDifficulty; },
   };
 })();

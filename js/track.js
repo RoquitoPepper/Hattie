@@ -1,23 +1,60 @@
-// Procedural closed-loop race track.
+// Procedural closed-loop race tracks, one per level (1..LEVEL_COUNT).
 // The centerline is generated as a polar curve r(theta) around a fixed
 // center point, which guarantees a simple (non self-intersecting) closed
 // shape, then smoothed with a Catmull-Rom spline and resampled at a fixed
 // arc-length step so every other system can index into it uniformly.
+//
+// Each level is seeded deterministically from its number, so the same
+// level always produces the same track, and difficulty (tightness of the
+// corners and track width) scales smoothly from level 1 (easiest) to
+// LEVEL_COUNT (hardest).
 
-const TRACK = (function buildTrack() {
+const LEVEL_COUNT = 100;
+
+function clamp(v, lo, hi) {
+  return Math.max(lo, Math.min(hi, v));
+}
+
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function difficultyOf(level) {
+  return clamp((level - 1) / (LEVEL_COUNT - 1), 0, 1);
+}
+
+function generateTrack(level) {
+  const t = difficultyOf(level);
+  const rng = mulberry32(level * 7919 + 13);
+
   const CENTER = { x: 1300, y: 1000 };
   const R0 = 750;
 
+  // Harder levels get tighter, twistier corners: amplitude of the polar
+  // wobble grows with difficulty, while staying well short of R0 so the
+  // curve can never fold back on itself.
+  const ampScale = 0.5 + 0.95 * t;
+  const amps = [150 * ampScale, 100 * ampScale, 60 * ampScale, 45 * t * ampScale];
+  const freqs = [2, 3, 5, 7];
+  const phases = amps.map(() => rng() * Math.PI * 2);
+
   function radiusAt(theta) {
-    return (
-      R0 +
-      150 * Math.sin(2 * theta + 0.5) +
-      100 * Math.sin(3 * theta + 1.7) +
-      60 * Math.sin(5 * theta + 3.0)
-    );
+    let r = R0;
+    for (let i = 0; i < amps.length; i++) {
+      r += amps[i] * Math.sin(freqs[i] * theta + phases[i]);
+    }
+    return r;
   }
 
-  const NUM_CTRL = 22;
+  // More control points on harder levels = more distinct corners.
+  const NUM_CTRL = Math.round(16 + 12 * t);
   const ctrlPoints = [];
   for (let i = 0; i < NUM_CTRL; i++) {
     const theta = (i / NUM_CTRL) * Math.PI * 2;
@@ -28,21 +65,21 @@ const TRACK = (function buildTrack() {
     });
   }
 
-  function catmullRom(p0, p1, p2, p3, t) {
-    const t2 = t * t;
-    const t3 = t2 * t;
+  function catmullRom(p0, p1, p2, p3, u) {
+    const u2 = u * u;
+    const u3 = u2 * u;
     const x =
       0.5 *
       (2 * p1.x +
-        (-p0.x + p2.x) * t +
-        (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 +
-        (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3);
+        (-p0.x + p2.x) * u +
+        (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * u2 +
+        (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * u3);
     const y =
       0.5 *
       (2 * p1.y +
-        (-p0.y + p2.y) * t +
-        (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 +
-        (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3);
+        (-p0.y + p2.y) * u +
+        (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * u2 +
+        (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * u3);
     return { x, y };
   }
 
@@ -103,9 +140,12 @@ const TRACK = (function buildTrack() {
     if (p.y > maxY) maxY = p.y;
   }
 
-  const WIDTH = 230;
+  // Wide and forgiving on level 1, narrow and technical by level 100.
+  const WIDTH = 300 - 140 * t;
 
   return {
+    level,
+    difficulty: t,
     centerline,
     count,
     step: STEP,
@@ -113,7 +153,9 @@ const TRACK = (function buildTrack() {
     width: WIDTH,
     bounds: { minX, minY, maxX, maxY },
   };
-})();
+}
+
+let TRACK = generateTrack(1);
 
 // Local windowed nearest-point search along the centerline, starting from a
 // hint index so it stays cheap even with a few hundred bikes-worth of calls.
@@ -154,8 +196,9 @@ function trackFindNearestFull(pos) {
   return { index: best, dist: Math.sqrt(bestD) };
 }
 
-function drawTrack(ctx) {
-  const cl = TRACK.centerline;
+function drawTrack(ctx, track) {
+  track = track || TRACK;
+  const cl = track.centerline;
   ctx.save();
   ctx.beginPath();
   ctx.moveTo(cl[0].x, cl[0].y);
@@ -166,18 +209,18 @@ function drawTrack(ctx) {
 
   // Curb: white base, red dashes on top.
   ctx.setLineDash([]);
-  ctx.lineWidth = TRACK.width + 26;
+  ctx.lineWidth = track.width + 26;
   ctx.strokeStyle = '#e8e8e8';
   ctx.stroke();
 
   ctx.setLineDash([42, 42]);
-  ctx.lineWidth = TRACK.width + 26;
+  ctx.lineWidth = track.width + 26;
   ctx.strokeStyle = '#d13b3b';
   ctx.stroke();
 
   // Asphalt surface.
   ctx.setLineDash([]);
-  ctx.lineWidth = TRACK.width;
+  ctx.lineWidth = track.width;
   ctx.strokeStyle = '#4a4f57';
   ctx.stroke();
 
@@ -194,7 +237,7 @@ function drawTrack(ctx) {
   const angle = start.angle;
   const nx = Math.cos(angle + Math.PI / 2);
   const ny = Math.sin(angle + Math.PI / 2);
-  const half = TRACK.width / 2;
+  const half = track.width / 2;
   const checks = 8;
   const segLen = (half * 2) / checks;
   ctx.save();

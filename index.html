@@ -13,7 +13,7 @@
 
   <div id="hud" class="hidden">
     <div class="hud-panel hud-top-left">
-      <div class="hud-label">LAP</div>
+      <div class="hud-label">LEVEL <span id="hudLevel">1</span> &middot; LAP</div>
       <div class="hud-value"><span id="lapCurrent">1</span>/<span id="lapTotal">3</span></div>
     </div>
     <div class="hud-panel hud-top-right">
@@ -45,6 +45,19 @@
         <div><strong>Steer</strong><span>A D / &larr; &rarr;</span></div>
         <div><strong>Handbrake</strong><span>Space</span></div>
       </div>
+      <div class="level-picker">
+        <div class="level-picker-header">
+          <span class="color-picker-label">Level</span>
+          <span id="levelValue" class="level-value">1 / 100</span>
+        </div>
+        <div class="level-row">
+          <canvas id="levelPreview" width="120" height="90"></canvas>
+          <div class="level-controls">
+            <input type="range" id="levelSlider" min="1" max="100" value="1" step="1">
+            <div id="levelDifficulty" class="level-difficulty">Rookie &middot; wide track, slow rivals</div>
+          </div>
+        </div>
+      </div>
       <div class="color-picker">
         <div class="color-picker-label">Bike Colour</div>
         <div class="swatches" id="colorSwatches"></div>
@@ -56,14 +69,17 @@
 
   <div id="results" class="overlay hidden">
     <div class="card">
-      <h1>🏁 Race Results</h1>
+      <h1 id="resultsHeading">🏁 Race Results</h1>
       <table id="resultsTable">
         <thead>
           <tr><th>Pos</th><th>Rider</th><th>Time</th><th>Best Lap</th></tr>
         </thead>
         <tbody></tbody>
       </table>
-      <button id="restartBtn" class="primary-btn">Race Again</button>
+      <div class="results-actions">
+        <button id="restartBtn" class="secondary-btn">Race Again</button>
+        <button id="nextLevelBtn" class="primary-btn">Next Level &rarr;</button>
+      </div>
     </div>
   </div>
 
