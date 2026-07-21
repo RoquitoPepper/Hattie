@@ -183,6 +183,46 @@ html, body {
   margin-bottom: 22px;
 }
 
+.color-picker {
+  margin-bottom: 18px;
+}
+
+.color-picker-label {
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: #9fb0c3;
+  font-weight: 600;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+
+.swatches {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.swatch {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+
+.swatch:hover {
+  transform: scale(1.1);
+}
+
+.swatch.selected {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 2px #121826, 0 0 0 4px #ffffff;
+}
+
 .primary-btn {
   background: linear-gradient(135deg, #ff5f5f, #ffb347);
   border: none;

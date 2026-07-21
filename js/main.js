@@ -20,7 +20,36 @@
   const speedValueEl = document.getElementById('speedValue');
 
   const RIDER_NAMES = ['You', 'Razor', 'Vex', 'Ghost', 'Ripper'];
-  const RIDER_COLORS = ['#ffd23f', '#ff5f5f', '#4fc3f7', '#69f0ae', '#ba68c8'];
+  const COLOR_PALETTE = [
+    '#ffd23f', // yellow
+    '#ff5f5f', // red
+    '#4fc3f7', // sky blue
+    '#69f0ae', // green
+    '#ba68c8', // purple
+    '#ffa726', // orange
+    '#f06292', // pink
+    '#f5f5f5', // white
+  ];
+  let playerColor = COLOR_PALETTE[0];
+
+  const colorSwatchesEl = document.getElementById('colorSwatches');
+  function buildColorPicker() {
+    colorSwatchesEl.innerHTML = '';
+    COLOR_PALETTE.forEach((color) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'swatch' + (color === playerColor ? ' selected' : '');
+      btn.style.background = color;
+      btn.setAttribute('aria-label', color);
+      btn.addEventListener('click', () => {
+        playerColor = color;
+        colorSwatchesEl.querySelectorAll('.swatch').forEach((s) => s.classList.remove('selected'));
+        btn.classList.add('selected');
+      });
+      colorSwatchesEl.appendChild(btn);
+    });
+  }
+  buildColorPicker();
 
   const STATE = { MENU: 'menu', COUNTDOWN: 'countdown', RACING: 'racing', FINISHED: 'finished' };
   let state = STATE.MENU;
@@ -43,6 +72,7 @@
   function spawnBikes() {
     const list = [];
     const n = TRACK.count;
+    const aiColors = COLOR_PALETTE.filter((c) => c !== playerColor);
     for (let i = 0; i < RIDER_NAMES.length; i++) {
       const backIdx = ((0 - i * 34) % n + n) % n;
       const p = TRACK.centerline[backIdx];
@@ -53,7 +83,7 @@
       list.push(
         new Bike({
           name: RIDER_NAMES[i],
-          color: RIDER_COLORS[i],
+          color: i === 0 ? playerColor : aiColors[(i - 1) % aiColors.length],
           isPlayer: i === 0,
           x: p.x + nx * laneOffset,
           y: p.y + ny * laneOffset,
