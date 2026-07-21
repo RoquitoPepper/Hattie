@@ -58,6 +58,7 @@
   const levelSlider = document.getElementById('levelSlider');
   const levelValueEl = document.getElementById('levelValue');
   const levelDifficultyEl = document.getElementById('levelDifficulty');
+  const levelUnlockNoteEl = document.getElementById('levelUnlockNote');
   const levelPreview = document.getElementById('levelPreview');
   const levelPreviewCtx = levelPreview.getContext('2d');
 
@@ -71,8 +72,21 @@
   function storeLevel(level) {
     try { localStorage.setItem('ridgeRacerLevel', String(level)); } catch (e) { /* ignore */ }
   }
+  function readStoredUnlocked() {
+    try {
+      const saved = parseInt(localStorage.getItem('ridgeRacerUnlocked'), 10);
+      if (saved >= 1 && saved <= LEVEL_COUNT) return saved;
+    } catch (e) { /* localStorage unavailable, e.g. private mode */ }
+    return 1;
+  }
+  function storeUnlocked(level) {
+    try { localStorage.setItem('ridgeRacerUnlocked', String(level)); } catch (e) { /* ignore */ }
+  }
 
-  let selectedLevel = readStoredLevel();
+  // Levels must be cleared in order: you can only race up to the highest
+  // level you've won so far. Winning a level unlocks the next one.
+  let highestUnlocked = readStoredUnlocked();
+  let selectedLevel = Math.min(readStoredLevel(), highestUnlocked);
   let currentDifficulty = 0;
 
   const DIFFICULTY_TIERS = [
@@ -110,12 +124,18 @@
   }
 
   function updateLevelUI() {
+    levelSlider.max = String(highestUnlocked);
+    if (selectedLevel > highestUnlocked) selectedLevel = highestUnlocked;
+    levelSlider.value = String(selectedLevel);
     levelValueEl.textContent = `${selectedLevel} / ${LEVEL_COUNT}`;
     levelDifficultyEl.textContent = difficultyLabel(selectedLevel);
+    levelUnlockNoteEl.textContent =
+      highestUnlocked >= LEVEL_COUNT
+        ? '🏆 All 100 levels unlocked!'
+        : `🔓 Levels 1–${highestUnlocked} unlocked — win Level ${highestUnlocked} to unlock Level ${highestUnlocked + 1}`;
     drawLevelPreview(selectedLevel);
   }
 
-  levelSlider.value = String(selectedLevel);
   updateLevelUI();
   levelSlider.addEventListener('input', () => {
     selectedLevel = parseInt(levelSlider.value, 10);
@@ -197,6 +217,7 @@
   }
 
   function startRace() {
+    selectedLevel = Math.min(selectedLevel, highestUnlocked);
     TRACK = generateTrack(selectedLevel);
     currentDifficulty = TRACK.difficulty;
     hudLevelEl.textContent = selectedLevel;
@@ -223,6 +244,10 @@
     hud.classList.add('hidden');
 
     const won = player.finishPosition === 1;
+    if (won && selectedLevel === highestUnlocked && highestUnlocked < LEVEL_COUNT) {
+      highestUnlocked++;
+      storeUnlocked(highestUnlocked);
+    }
     resultsHeading.textContent = `🏁 Level ${selectedLevel} — ${won ? 'You Won!' : 'Race Results'}`;
     nextLevelBtn.classList.toggle('hidden', selectedLevel >= LEVEL_COUNT || !won);
 
@@ -293,7 +318,9 @@
       finishRace();
       return;
     }
-    if (bikes.every((b) => b.finished)) {
+    // Even if the player never finishes (falls hopelessly behind, or just
+    // stops), the race can't stay open forever once every rival is done.
+    if (bikes.filter((b) => !b.isPlayer).every((b) => b.finished)) {
       finishRace();
     }
   }
@@ -419,15 +446,22 @@
     requestAnimationFrame(loop);
   }
 
+  function backToMenu() {
+    state = STATE.MENU;
+    hud.classList.add('hidden');
+    results.classList.add('hidden');
+    updateLevelUI();
+    menu.classList.remove('hidden');
+  }
+
   startBtn.addEventListener('click', startRace);
   restartBtn.addEventListener('click', startRace);
   nextLevelBtn.addEventListener('click', () => {
-    selectedLevel = Math.min(selectedLevel + 1, LEVEL_COUNT);
+    selectedLevel = Math.min(selectedLevel + 1, highestUnlocked);
     storeLevel(selectedLevel);
-    levelSlider.value = String(selectedLevel);
-    updateLevelUI();
     startRace();
   });
+  document.getElementById('backToMenuBtn').addEventListener('click', backToMenu);
   muteBtn.addEventListener('click', () => {
     const muted = GameAudio.toggleMute();
     muteBtn.textContent = muted ? '🔇' : '🔊';
@@ -448,5 +482,6 @@
     get state() { return state; },
     get selectedLevel() { return selectedLevel; },
     get difficulty() { return currentDifficulty; },
+    get highestUnlocked() { return highestUnlocked; },
   };
 })();

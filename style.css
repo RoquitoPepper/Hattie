@@ -235,6 +235,12 @@ html, body {
   color: #9fb0c3;
 }
 
+.level-unlock-note {
+  font-size: 11px;
+  color: #ffd23f;
+  margin-top: 6px;
+}
+
 .color-picker {
   margin-bottom: 18px;
 }
@@ -317,6 +323,21 @@ html, body {
   display: flex;
   gap: 12px;
   justify-content: center;
+  margin-bottom: 14px;
+}
+
+.text-btn {
+  background: none;
+  border: none;
+  color: #9fb0c3;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 4px;
+}
+
+.text-btn:hover {
+  color: #eef2f7;
 }
 
 /* ---------- Countdown ---------- */
