@@ -12,6 +12,16 @@ python3 -m http.server 8080
 
 then visit `http://localhost:8080`.
 
+## Install as an app
+
+Ridge Racer Circuit is a installable PWA (Progressive Web App): served over HTTP(S) (or `localhost`), it gets a manifest, an app icon, and a service worker that caches the game so it keeps working offline after the first load.
+
+- **Desktop Chrome/Edge**: click the install icon in the address bar, or the browser menu → "Install Ridge Racer Circuit".
+- **Mobile (Android/Chrome)**: browser menu → "Add to Home screen" / "Install app".
+- **iOS/Safari**: Share button → "Add to Home Screen".
+
+Installed, it opens in its own standalone window with no browser chrome. Opening `index.html` directly via `file://` still works for plain play, it just skips the installable/offline bits (service workers require a real server or `localhost`).
+
 ## Controls
 
 | Action | Keys |
@@ -31,5 +41,6 @@ Touch controls appear automatically on touch devices.
 - `js/input.js` — keyboard + touch input state.
 - `js/audio.js` — small procedural engine hum and countdown/finish beeps via the Web Audio API.
 - `js/main.js` — game state machine (menu → countdown → race → results), camera, HUD, minimap, and the AI rubber-banding that keeps rivals close to the player.
+- `manifest.webmanifest` / `sw.js` — PWA install metadata and the offline-caching service worker.
 
 Race 4 AI riders over 3 laps. Stay off the grass — it saps your top speed.
