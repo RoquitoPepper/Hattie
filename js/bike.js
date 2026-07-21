@@ -5,6 +5,7 @@ function normalizeAngle(a) {
 }
 
 const TOTAL_LAPS = 3;
+const BIKE_RADIUS = 11;
 
 class Bike {
   constructor(opts) {
@@ -39,6 +40,10 @@ class Bike {
     this.lapTimes = [];
     this.lastLapStart = 0;
     this.onTrack = true;
+
+    this.hitCooldown = 0;
+    this.hitFlashTimer = 0;
+    this.justHitObstacle = false;
   }
 
   get totalProgress() {
@@ -50,7 +55,25 @@ class Bike {
     const n = cl.length;
     const speedFactor = clamp(Math.abs(this.speed) / this.baseMaxSpeed, 0.15, 1);
     const lookAhead = Math.round(28 + speedFactor * 46);
-    const target = cl[(this.trackIndex + lookAhead) % n];
+    const target = { ...cl[(this.trackIndex + lookAhead) % n] };
+
+    // Steer the aim point away from any obstacle coming up soon, so AI
+    // riders swerve around hazards instead of driving straight into them.
+    const avoidWindow = lookAhead + 35;
+    for (const obs of TRACK.obstacles) {
+      let idxDiff = obs.index - this.trackIndex;
+      if (idxDiff < 0) idxDiff += n;
+      if (idxDiff > avoidWindow) continue;
+      const cp = cl[obs.index];
+      const nx = Math.cos(cp.angle + Math.PI / 2);
+      const ny = Math.sin(cp.angle + Math.PI / 2);
+      const closeness = 1 - idxDiff / avoidWindow;
+      const avoidDir = obs.offset >= 0 ? -1 : 1;
+      const weight = closeness * closeness * 70 * this.aiSkill;
+      target.x += nx * avoidDir * weight;
+      target.y += ny * avoidDir * weight;
+    }
+
     const dx = target.x - this.x;
     const dy = target.y - this.y;
     const targetAngle = Math.atan2(dy, dx);
@@ -100,6 +123,32 @@ class Bike {
 
     this.x += Math.cos(this.angle) * this.speed * dt;
     this.y += Math.sin(this.angle) * this.speed * dt;
+
+    if (this.hitCooldown > 0) this.hitCooldown -= dt;
+    if (this.hitFlashTimer > 0) this.hitFlashTimer -= dt;
+    this.justHitObstacle = false;
+    if (this.hitCooldown <= 0) {
+      for (const obs of TRACK.obstacles) {
+        const ox = this.x - obs.x;
+        const oy = this.y - obs.y;
+        const dist = Math.hypot(ox, oy);
+        const minDist = BIKE_RADIUS + obs.radius;
+        if (dist < minDist) {
+          this.speed *= 0.25;
+          this.hitCooldown = 0.5;
+          this.hitFlashTimer = 0.3;
+          this.justHitObstacle = true;
+          const push = minDist - dist + 2;
+          if (dist > 0.001) {
+            this.x += (ox / dist) * push;
+            this.y += (oy / dist) * push;
+          } else {
+            this.x += push;
+          }
+          break;
+        }
+      }
+    }
 
     // Odometer-based lap counting: accumulate signed progress along the
     // centerline so driving backwards over the line can't fake a lap.

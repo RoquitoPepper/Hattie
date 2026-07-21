@@ -143,6 +143,8 @@ function generateTrack(level) {
   // Wide and forgiving on level 1, narrow and technical by level 100.
   const WIDTH = 300 - 140 * t;
 
+  const obstacles = placeObstacles(rng, centerline, count, WIDTH, t);
+
   return {
     level,
     difficulty: t,
@@ -152,7 +154,53 @@ function generateTrack(level) {
     totalLength: total,
     width: WIDTH,
     bounds: { minX, minY, maxX, maxY },
+    obstacles,
   };
+}
+
+// Scatters cones/barrels along the track for the player (and AI) to dodge.
+// Reuses the track's own seeded RNG so a level's hazards are reproducible,
+// keeps clear of the start/finish grid, enforces spacing so hazards don't
+// cluster into an unavoidable wall, and never fully blocks the road width.
+function placeObstacles(rng, centerline, n, width, t) {
+  const count = Math.round(6 + 16 * t);
+  // Must clear the whole staggered starting grid (riders spawn up to ~136
+  // index-steps behind the line) plus some reaction distance, not just a
+  // fraction of the lap - short tracks would otherwise leave that too small.
+  const startBuffer = Math.max(Math.round(n * 0.08), 170);
+  const usableRange = n - startBuffer * 2;
+  if (usableRange <= 0) return [];
+  const minGapIndices = Math.max(6, Math.floor(usableRange / (count * 1.3)));
+
+  const obstacles = [];
+  const usedIndices = [];
+  let attempts = 0;
+  while (obstacles.length < count && attempts < count * 25) {
+    attempts++;
+    const idx = startBuffer + Math.floor(rng() * usableRange);
+    const tooClose = usedIndices.some((u) => {
+      const d = Math.abs(idx - u);
+      return Math.min(d, n - d) < minGapIndices;
+    });
+    if (tooClose) continue;
+    usedIndices.push(idx);
+
+    const cp = centerline[idx];
+    const maxOffset = width * 0.32; // always leaves a clear lane past it
+    const offset = (rng() * 2 - 1) * maxOffset;
+    const nx = Math.cos(cp.angle + Math.PI / 2);
+    const ny = Math.sin(cp.angle + Math.PI / 2);
+    obstacles.push({
+      index: idx,
+      offset,
+      x: cp.x + nx * offset,
+      y: cp.y + ny * offset,
+      radius: 13 + rng() * 4,
+      type: rng() < 0.5 ? 'cone' : 'barrel',
+    });
+  }
+  obstacles.sort((a, b) => a.index - b.index);
+  return obstacles;
 }
 
 let TRACK = generateTrack(1);
@@ -254,4 +302,41 @@ function drawTrack(ctx, track) {
     ctx.fill();
   }
   ctx.restore();
+}
+
+function drawObstacles(ctx, track) {
+  track = track || TRACK;
+  for (const obs of track.obstacles) {
+    const r = obs.radius;
+    ctx.save();
+    ctx.translate(obs.x, obs.y);
+
+    ctx.fillStyle = 'rgba(0,0,0,0.28)';
+    ctx.beginPath();
+    ctx.ellipse(1.5, 3, r * 0.95, r * 0.55, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (obs.type === 'cone') {
+      ctx.fillStyle = '#ff7a1a';
+      ctx.beginPath();
+      ctx.moveTo(0, -r);
+      ctx.lineTo(r * 0.8, r * 0.8);
+      ctx.lineTo(-r * 0.8, r * 0.8);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#f5f5f5';
+      ctx.fillRect(-r * 0.55, r * 0.15, r * 1.1, r * 0.22);
+    } else {
+      ctx.fillStyle = '#d8d8d8';
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#d13b3b';
+      ctx.lineWidth = r * 0.34;
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 0.6, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
 }

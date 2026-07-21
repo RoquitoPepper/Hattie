@@ -121,6 +121,13 @@
     for (let i = 1; i < cl.length; i += 2) levelPreviewCtx.lineTo(cl[i].x * s + ox, cl[i].y * s + oy);
     levelPreviewCtx.closePath();
     levelPreviewCtx.stroke();
+    levelPreviewCtx.fillStyle = '#ff7a1a';
+    for (const obs of preview.obstacles) {
+      levelPreviewCtx.beginPath();
+      levelPreviewCtx.arc(obs.x * s + ox, obs.y * s + oy, 2, 0, Math.PI * 2);
+      levelPreviewCtx.fill();
+    }
+    return preview;
   }
 
   function updateLevelUI() {
@@ -128,12 +135,12 @@
     if (selectedLevel > highestUnlocked) selectedLevel = highestUnlocked;
     levelSlider.value = String(selectedLevel);
     levelValueEl.textContent = `${selectedLevel} / ${LEVEL_COUNT}`;
-    levelDifficultyEl.textContent = difficultyLabel(selectedLevel);
+    const preview = drawLevelPreview(selectedLevel);
+    levelDifficultyEl.textContent = `${difficultyLabel(selectedLevel)} · ${preview.obstacles.length} hazards`;
     levelUnlockNoteEl.textContent =
       highestUnlocked >= LEVEL_COUNT
         ? '🏆 All 100 levels unlocked!'
         : `🔓 Levels 1–${highestUnlocked} unlocked — win Level ${highestUnlocked} to unlock Level ${highestUnlocked + 1}`;
-    drawLevelPreview(selectedLevel);
   }
 
   updateLevelUI();
@@ -305,6 +312,7 @@
         b.maxSpeed = clamp(b.baseMaxSpeed + adjust, b.baseMaxSpeed * 0.65, b.baseMaxSpeed * 1.3);
       }
       b.update(dt, raceTime, controls);
+      if (b.justHitObstacle && b.isPlayer) GameAudio.hitThud();
     }
 
     rankBikes();
@@ -369,6 +377,17 @@
       ctx.fill();
     }
     ctx.restore();
+
+    if (b.hitFlashTimer > 0) {
+      ctx.save();
+      ctx.translate(b.x, b.y);
+      ctx.strokeStyle = `rgba(255,70,70,${clamp(b.hitFlashTimer / 0.3, 0, 1)})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, 22, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 
   function drawWorld() {
@@ -380,6 +399,7 @@
 
     worldToScreenTransform();
     drawTrack(ctx);
+    drawObstacles(ctx);
     for (const b of bikes) drawBike(b);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
   }

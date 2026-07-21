@@ -64,6 +64,22 @@ const GameAudio = (function () {
     beep(784, 0.3, 0.3);
   }
 
+  function hitThud() {
+    const c = ensureContext();
+    if (!c || muted) return;
+    const osc = c.createOscillator();
+    const gain = c.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(180, c.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(55, c.currentTime + 0.15);
+    gain.gain.value = 0.12;
+    osc.connect(gain).connect(c.destination);
+    osc.start();
+    gain.gain.setValueAtTime(0.12, c.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.18);
+    osc.stop(c.currentTime + 0.2);
+  }
+
   function toggleMute() {
     muted = !muted;
     if (muted && engineGain && ctx) engineGain.gain.setTargetAtTime(0, ctx.currentTime, 0.05);
@@ -77,6 +93,7 @@ const GameAudio = (function () {
     stopEngine,
     countdownBeep,
     finishJingle,
+    hitThud,
     toggleMute,
     get muted() { return muted; },
   };
